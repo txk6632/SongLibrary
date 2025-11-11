@@ -148,9 +148,6 @@ namespace SongLibrary
             songLibraryGrid.DataBindingComplete += songLibraryGrid_DataBindingComplete;
             AdjustActionColumnWidths();
         }
-
-
-
         // Called when the form is resized
         private void MainForm_Resize(object? sender, EventArgs e) => AdjustActionColumnWidths();
 
@@ -337,6 +334,7 @@ namespace SongLibrary
                 var rows = await cmd.ExecuteNonQueryAsync();
                 if (rows > 0)
                 {
+                    MessageBox.Show("Record updated successfully.", "Update", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     // Refresh grid
                     LoadSongsFromDatabase();
                 }
@@ -375,6 +373,7 @@ namespace SongLibrary
 
                 if (rows > 0)
                 {
+                    MessageBox.Show("Record inserted successfully.", "Insert", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     // Refresh grid
                     LoadSongsFromDatabase();
                 }
@@ -406,22 +405,19 @@ namespace SongLibrary
             {
                 using var connection = new SqliteConnection($"Data Source={_dbPath}");
                 await connection.OpenAsync();
-
-                using var transaction = connection.BeginTransaction();
                 using var cmd = connection.CreateCommand();
-                cmd.Transaction = transaction;
+
                 cmd.CommandText = "DELETE FROM song_library WHERE id = @id";
                 cmd.Parameters.AddWithValue("@id", id);
 
                 var rows = await cmd.ExecuteNonQueryAsync();
                 if (rows > 0)
                 {
-                    transaction.Commit();
+                    MessageBox.Show("Record deleted successfully.", "Delete", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     LoadSongsFromDatabase();
                 }
                 else
-                {
-                    transaction.Rollback();
+                {            
                     MessageBox.Show("No rows were deleted.", "Delete", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
