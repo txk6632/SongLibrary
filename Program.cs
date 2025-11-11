@@ -1,3 +1,6 @@
+using System;
+using System.Windows.Forms;
+
 namespace SongLibrary
 {
     internal static class Program
@@ -11,7 +14,12 @@ namespace SongLibrary
             // To customize application configuration such as set high DPI settings or default font,
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
-            Application.Run(new Form1());
+
+            // Call before creating any controls or forms
+            Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            Application.Run(new MainForm());
         }
     }
 }
