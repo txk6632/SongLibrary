@@ -144,9 +144,17 @@ namespace SongLibrary
             songLibraryGrid.Columns["Price"].DefaultCellStyle.Format = "N2";
 
             //Wire DataBindingComplete event to set tooltips
-            songLibraryGrid.DataBindingComplete -= songLibraryGrid_DataBindingComplete;
-            songLibraryGrid.DataBindingComplete += songLibraryGrid_DataBindingComplete;
-            AdjustActionColumnWidths();
+            if (songLibraryGrid != null)
+            {
+                songLibraryGrid.DataBindingComplete -= songLibraryGrid_DataBindingComplete;
+                songLibraryGrid.DataBindingComplete += songLibraryGrid_DataBindingComplete;
+            }
+            else
+            {
+                throw new InvalidOperationException("Datasource is null.");          
+            }
+
+                AdjustActionColumnWidths();
         }
         // Called when the form is resized
         private void MainForm_Resize(object? sender, EventArgs e) => AdjustActionColumnWidths();

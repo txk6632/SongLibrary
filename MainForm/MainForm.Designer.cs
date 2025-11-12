@@ -49,6 +49,8 @@ namespace SongLibrary
             // 
             // songLibraryGrid
             // 
+            songLibraryGrid.AllowUserToAddRows = false;
+            songLibraryGrid.AllowUserToDeleteRows = false;
             songLibraryGrid.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             songLibraryGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             songLibraryGrid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
@@ -60,6 +62,7 @@ namespace SongLibrary
             songLibraryGrid.Location = new Point(1, 162);
             songLibraryGrid.Margin = new Padding(1);
             songLibraryGrid.Name = "songLibraryGrid";
+            songLibraryGrid.ReadOnly = true;
             songLibraryGrid.RowHeadersWidth = 102;
             songLibraryGrid.Size = new Size(1538, 679);
             songLibraryGrid.TabIndex = 0;
@@ -70,6 +73,7 @@ namespace SongLibrary
             Edit.Image = Resource1.edit_button;
             Edit.MinimumWidth = 50;
             Edit.Name = "Edit";
+            Edit.ReadOnly = true;
             Edit.Resizable = DataGridViewTriState.False;
             // 
             // Delete
@@ -78,6 +82,7 @@ namespace SongLibrary
             Delete.Image = Resource1.trash_can_10416;
             Delete.MinimumWidth = 50;
             Delete.Name = "Delete";
+            Delete.ReadOnly = true;
             // 
             // add_btn
             // 
