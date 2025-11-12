@@ -15,11 +15,11 @@ namespace SongLibrary
         private bool _isPlaceholderActive = true;
         private static readonly Random _rndErr = new Random();
 
-        public MainForm()
+        public MainForm(ILogger<MainForm> logger)
         {
-            //_logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             InitializeComponent();
-            //_logger.LogInformation("MainForm initialized");
+            _logger.LogInformation("MainForm initialized");
             _bindingSource = new BindingSource();
             LoadSongsFromDatabase();
 
@@ -117,7 +117,7 @@ namespace SongLibrary
             }
             catch (Exception ex)
             {
-               // _logger?.LogError(ex, "Failed to load song records from DB");
+                _logger?.LogError(ex, "Failed to load song records from DB");
                 MessageBox.Show($"Failed to load song records: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
@@ -155,6 +155,7 @@ namespace SongLibrary
             }
             else
             {
+                _logger?.LogError("Datasource is null.");
                 throw new InvalidOperationException("Datasource is null.");          
             }
 
@@ -393,6 +394,7 @@ namespace SongLibrary
             {
                 if (_rndErr.Next(5) == 0)
                 {
+                    _logger?.LogError("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
                     throw new InvalidOperationException("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
                 }
                 // Update record in database
@@ -400,6 +402,7 @@ namespace SongLibrary
                 var rows = await ExecuteNonQuery(strQuery, dlg, id);
                 if (rows > 0)
                 {
+                    _logger?.LogInformation($"Updated song {dlg.SongTitle}");
                     MessageBox.Show("Record updated successfully.", "Update", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     // Refresh grid
                     LoadSongsFromDatabase();
@@ -421,12 +424,14 @@ namespace SongLibrary
             {
                 if (_rndErr.Next(5) == 0)
                 {
+                    _logger?.LogError("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
                     throw new InvalidOperationException("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
                 }
                 string strQuery = "INSERT INTO song_library (title, artist, release_date, price) VALUES (@title, @artist, @release_date, @price)";
                 var rows = await ExecuteNonQuery(strQuery, dlg, null);
                 if (rows > 0)
                 {
+                    _logger?.LogInformation($"Added song {dlg.SongTitle}");
                     MessageBox.Show("Record inserted successfully.", "Insert", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     // Refresh grid
                     LoadSongsFromDatabase();
@@ -434,6 +439,7 @@ namespace SongLibrary
             }
             catch (Exception ex)
             {
+                _logger?.LogError($"Failed to insert record: {ex.Message}") ;
                 MessageBox.Show($"Failed to insert record: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }        
         }
@@ -484,6 +490,7 @@ namespace SongLibrary
                 var rows = await cmd.ExecuteNonQueryAsync();
                 if (rows > 0)
                 {
+                    _logger?.LogInformation($"Deleted Song {title}");
                     MessageBox.Show("Record deleted successfully.", "Delete", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     LoadSongsFromDatabase();
                 }
@@ -497,7 +504,7 @@ namespace SongLibrary
                 MessageBox.Show($"Failed to delete record: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-        // Search box text changed event handler, applies filter
+        // Search box text changed event handler, applies filter to grid
         private void searchBox_TextChanged(object sender, EventArgs e) => ApplyFilter();
 
      

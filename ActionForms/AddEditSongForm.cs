@@ -1,16 +1,22 @@
-﻿namespace SongLibrary
+﻿using Microsoft.Extensions.Logging;
+
+namespace SongLibrary
 {
     public partial class AddEditSongForm : Form
     {
+        private readonly ILogger<AddEditSongForm>? _logger;
         // Preserve comment style from AddSongForm
-        public AddEditSongForm(string formTitle, string? title = null, string? artist = null, DateTime? releaseDate = null, decimal price = 0)
+        public AddEditSongForm(string formTitle, string? title = null, string? artist = null, DateTime? releaseDate = null, decimal price = 0, ILogger<AddEditSongForm>? logger = null)
         {
+            _logger = logger;
             InitializeComponent();    
             this.Text = formTitle;
             titleTextBox.Text = title;
             artistTextBox.Text = artist;
             releaseDatePicker.Value = releaseDate ?? DateTime.Now;
             priceNumeric.Value = price;
+
+            _logger?.LogDebug("AddEditSongForm opened: {title}", title);
         }
 
         // Expose values to the caller
@@ -37,12 +43,14 @@
             }
 
             DialogResult = DialogResult.OK;
+            _logger?.LogDebug("AddEditSongForm Closed OK");
             Close();
         }
 
         private void cancelButton_Click(object sender, EventArgs e)
         {
             DialogResult = DialogResult.Cancel;
+            _logger?.LogDebug("DeleteSongForm Closed Cancel");
             Close();
         }
     }

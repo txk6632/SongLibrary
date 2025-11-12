@@ -74,7 +74,7 @@ namespace SongLibrary
             songLibraryGrid.Name = "songLibraryGrid";
             songLibraryGrid.ReadOnly = true;
             songLibraryGrid.RowHeadersWidth = 102;
-            songLibraryGrid.Size = new Size(1327, 601);
+            songLibraryGrid.Size = new Size(1272, 601);
             songLibraryGrid.TabIndex = 0;
             // 
             // Edit
@@ -104,7 +104,7 @@ namespace SongLibrary
             btnAdd.ForeColor = SystemColors.ControlText;
             btnAdd.Image = Resource1.add_button_12017;
             btnAdd.ImageAlign = ContentAlignment.MiddleLeft;
-            btnAdd.Location = new Point(1156, 38);
+            btnAdd.Location = new Point(1101, 38);
             btnAdd.Margin = new Padding(2, 3, 2, 3);
             btnAdd.Name = "btnAdd";
             btnAdd.Size = new Size(160, 49);
@@ -116,7 +116,7 @@ namespace SongLibrary
             // searchBox
             // 
             searchBox.Anchor = AnchorStyles.Top;
-            searchBox.Location = new Point(377, 39);
+            searchBox.Location = new Point(349, 39);
             searchBox.Margin = new Padding(2, 3, 2, 3);
             searchBox.Name = "searchBox";
             searchBox.Size = new Size(591, 23);
@@ -137,7 +137,7 @@ namespace SongLibrary
             panel1.Location = new Point(2, 0);
             panel1.Margin = new Padding(2, 3, 2, 3);
             panel1.Name = "panel1";
-            panel1.Size = new Size(1326, 161);
+            panel1.Size = new Size(1271, 161);
             panel1.TabIndex = 5;
             // 
             // groupBox1
@@ -150,7 +150,7 @@ namespace SongLibrary
             groupBox1.Controls.Add(fromDatePicker);
             groupBox1.Controls.Add(label2);
             groupBox1.Controls.Add(label3);
-            groupBox1.Location = new Point(300, 68);
+            groupBox1.Location = new Point(272, 68);
             groupBox1.Name = "groupBox1";
             groupBox1.Size = new Size(701, 80);
             groupBox1.TabIndex = 14;
@@ -221,7 +221,7 @@ namespace SongLibrary
             flowLayoutPanel1.Anchor = AnchorStyles.Top;
             flowLayoutPanel1.AutoSize = true;
             flowLayoutPanel1.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            flowLayoutPanel1.Location = new Point(326, 105);
+            flowLayoutPanel1.Location = new Point(298, 105);
             flowLayoutPanel1.Name = "flowLayoutPanel1";
             flowLayoutPanel1.Size = new Size(0, 0);
             flowLayoutPanel1.TabIndex = 13;
@@ -239,10 +239,10 @@ namespace SongLibrary
             // 
             // label1
             // 
-            label1.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            label1.Anchor = AnchorStyles.Right;
             label1.AutoSize = true;
             label1.Font = new Font("Segoe UI", 9F, FontStyle.Italic, GraphicsUnit.Point, 0);
-            label1.Location = new Point(1156, 133);
+            label1.Location = new Point(1101, 133);
             label1.Name = "label1";
             label1.Size = new Size(164, 15);
             label1.TabIndex = 6;
@@ -252,7 +252,7 @@ namespace SongLibrary
             // 
             pictureBox1.Anchor = AnchorStyles.Top;
             pictureBox1.Image = Resource1.icons8_search_30;
-            pictureBox1.Location = new Point(341, 35);
+            pictureBox1.Location = new Point(313, 35);
             pictureBox1.Margin = new Padding(2, 3, 2, 3);
             pictureBox1.Name = "pictureBox1";
             pictureBox1.Size = new Size(31, 32);
@@ -272,12 +272,12 @@ namespace SongLibrary
             AutoScaleDimensions = new SizeF(96F, 96F);
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = SystemColors.ButtonFace;
-            ClientSize = new Size(1329, 779);
+            ClientSize = new Size(1274, 779);
             Controls.Add(panel1);
             Controls.Add(songLibraryGrid);
             Icon = (Icon)resources.GetObject("$this.Icon");
             Margin = new Padding(2, 3, 2, 3);
-            MinimumSize = new Size(1345, 818);
+            MinimumSize = new Size(1290, 818);
             Name = "MainForm";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Music Library";
