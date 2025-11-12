@@ -213,10 +213,10 @@ namespace SongLibrary
                 row["Release Date"] = releaseDate;
             }
             dt.Columns.Remove("release_date");
-            dt.Columns["Release Date"].SetOrdinal(3);
-            dt.Columns["title"].ColumnName = "Title";
-            dt.Columns["artist"].ColumnName = "Artist";
-            dt.Columns["price"].ColumnName = "Price";
+            dt.Columns["Release Date"]!.SetOrdinal(3);
+            dt.Columns["title"]!.ColumnName = "Title";   
+            dt.Columns["artist"]!.ColumnName = "Artist";
+            dt.Columns["price"]!.ColumnName = "Price";
         }
         // Apply filter based on search box text
         private void ApplyFilter()
