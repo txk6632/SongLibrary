@@ -1,7 +1,4 @@
-﻿using System;
-using System.Windows.Forms;
-
-namespace SongLibrary
+﻿namespace SongLibrary
 {
     public partial class DeleteSongForm : Form
     {
@@ -36,6 +33,7 @@ namespace SongLibrary
             DialogResult = DialogResult.Cancel;
             Close();
         }
+
     }
 }
 
