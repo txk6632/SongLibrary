@@ -7,12 +7,17 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ForceDesignerDPIUnaware>true</ForceDesignerDPIUnaware>
+    <ApplicationIcon>Resources\Music_ICON.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Remove="UnitTests\**" />
     <EmbeddedResource Remove="UnitTests\**" />
     <None Remove="UnitTests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Resources\Music_ICON.ico" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,6 +30,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
     <Compile Update="Resource1.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
@@ -42,6 +52,10 @@
   <ItemGroup>
     <None Update="Data Sources\SongLibrary.db">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
   </ItemGroup>
 

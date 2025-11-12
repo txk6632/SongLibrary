@@ -1,5 +1,4 @@
-﻿
-namespace SongLibrary
+﻿namespace SongLibrary
 {
     public partial class AddEditSongForm : Form
     {
@@ -19,7 +18,7 @@ namespace SongLibrary
         public string Artist => artistTextBox.Text.Trim();
         public DateTime ReleaseDate => releaseDatePicker.Value.Date;
         public decimal Price => priceNumeric.Value;
-
+        
         private void okButton_Click(object sender, EventArgs e)
         {
             // Validate user inputs

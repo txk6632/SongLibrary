@@ -2,7 +2,6 @@ using Microsoft.Data.Sqlite;
 using System.Data;
 using System.Globalization;
 
-
 namespace SongLibrary
 {
     public partial class MainForm : Form
@@ -45,7 +44,8 @@ namespace SongLibrary
 
         private void songLibraryGrid_CellContentClick(object? sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex < 0 || e.ColumnIndex < 0) return; // header or invalid
+            // header or invalid
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return; 
 
             var col = songLibraryGrid.Columns[e.ColumnIndex];
             if (col == null) return;
@@ -157,7 +157,6 @@ namespace SongLibrary
         // Called when the form is resized
         private void MainForm_Resize(object? sender, EventArgs e) => AdjustActionColumnWidths();
 
-
         // Adjust Edit/Delete column widths based on grid width so UI remains consistent,
         // since grid is responsive, if it's set to columns fill,the buttons columns become too wide on large screens.
         private void AdjustActionColumnWidths()
@@ -212,6 +211,7 @@ namespace SongLibrary
         // Modify DataTable to adjust column names and types
         private void ModifyDataTable(DataTable dt)
         {
+            //SQLite stores dates as text, convert to DateTime so user can sort on grid
             dt.Columns.Add("Release Date", typeof(DateTime));
             foreach (DataRow row in dt.Rows)
             {
@@ -314,7 +314,7 @@ namespace SongLibrary
             var artist = songLibraryGrid.Rows[e.RowIndex].Cells["artist"].Value?.ToString() ?? string.Empty;
             DateTime releaseDate = Convert.ToDateTime(songLibraryGrid.Rows[e.RowIndex].Cells["release date"].Value);
             decimal price = (decimal)songLibraryGrid.Rows[e.RowIndex].Cells["price"].Value;
-            var id = songLibraryGrid.Rows[e.RowIndex].Cells["id"].Value?.ToString();
+            int id = Convert.ToInt32(songLibraryGrid.Rows[e.RowIndex].Cells["id"].Value?.ToString());
 
             // Show AddEdit dialog passing constructor parameters
             using var dlg = new AddEditSongForm("Edit Song",title, artist, releaseDate, price);
@@ -327,17 +327,8 @@ namespace SongLibrary
                     throw new InvalidOperationException("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
                 }
                 // Update record in database
-                using var connection = new SqliteConnection($"Data Source={_dbPath}");
-                await connection.OpenAsync();
-                using var cmd = connection.CreateCommand();
-                cmd.CommandText = "UPDATE song_library SET title=@title, artist=@artist,price=@price WHERE id=@id";
-                cmd.Parameters.AddWithValue("@title", dlg.SongTitle);
-                cmd.Parameters.AddWithValue("@artist", dlg.Artist);
-                cmd.Parameters.AddWithValue("@release_date", dlg.ReleaseDate.ToString("MM-dd-yyyy", CultureInfo.InvariantCulture));
-                cmd.Parameters.AddWithValue("@price", dlg.Price);
-                cmd.Parameters.AddWithValue("@id", id);
-
-                var rows = await cmd.ExecuteNonQueryAsync();
+                string strQuery = "UPDATE song_library SET title=@title, artist=@artist, release_date=@release_date, price=@price WHERE id=@id";
+                var rows = await ExecuteNonQuery(strQuery, dlg, id);
                 if (rows > 0)
                 {
                     MessageBox.Show("Record updated successfully.", "Update", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -353,30 +344,18 @@ namespace SongLibrary
        
         // Add button click handler
         private async void add_btn_Click(object? sender, EventArgs e)
-        {
+        {      
             // Show AddEdit dialog passing only the form title
             using var dlg = new AddEditSongForm("Add Song");
             if (dlg.ShowDialog(this) != DialogResult.OK) return;
-
             try
             {
                 if (_rndErr.Next(5) == 0)
                 {
                     throw new InvalidOperationException("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
                 }
-                // Insert new record into database
-                using var connection = new SqliteConnection($"Data Source={_dbPath}");
-                await connection.OpenAsync();
-
-                using var cmd = connection.CreateCommand();
-                cmd.CommandText = "INSERT INTO song_library (title, artist, release_date, price) VALUES (@title, @artist, @release_date, @price)";
-                cmd.Parameters.AddWithValue("@title", dlg.SongTitle);
-                cmd.Parameters.AddWithValue("@artist", dlg.Artist);
-                cmd.Parameters.AddWithValue("@release_date", dlg.ReleaseDate.ToString("MM-dd-yyyy", CultureInfo.InvariantCulture));
-                cmd.Parameters.AddWithValue("@price", dlg.Price);
-
-                var rows = await cmd.ExecuteNonQueryAsync();
-
+                string strQuery = "INSERT INTO song_library (title, artist, release_date, price) VALUES (@title, @artist, @release_date, @price)";
+                var rows = await ExecuteNonQuery(strQuery, dlg, null);
                 if (rows > 0)
                 {
                     MessageBox.Show("Record inserted successfully.", "Insert", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -387,7 +366,24 @@ namespace SongLibrary
             catch (Exception ex)
             {
                 MessageBox.Show($"Failed to insert record: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }        
+        }
+        private async Task<int> ExecuteNonQuery(string strQuery, AddEditSongForm dlg, int? id)
+        {
+            using var connection = new SqliteConnection($"Data Source={_dbPath}");
+            await connection.OpenAsync();
+
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = strQuery;
+            cmd.Parameters.AddWithValue("@title", dlg.SongTitle);
+            cmd.Parameters.AddWithValue("@artist", dlg.Artist);
+            cmd.Parameters.AddWithValue("@release_date", dlg.ReleaseDate.ToString("MM-dd-yyyy", CultureInfo.InvariantCulture));
+            cmd.Parameters.AddWithValue("@price", dlg.Price);
+            if(id.HasValue)
+            {
+                cmd.Parameters.AddWithValue("@id", id);
             }
+            return await cmd.ExecuteNonQueryAsync();
         }
         // Confirm and delete song record, runs on cell content click for Delete column
         private async void ConfirmAndDelete(DataGridViewCellEventArgs e)
