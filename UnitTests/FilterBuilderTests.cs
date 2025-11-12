@@ -1,8 +1,8 @@
+using SongLibrary.Utils;
 using System.Data;
 using System.Globalization;
-using SongLibrary.Utils;
-using Xunit;
-namespace SongLibraryTest
+
+namespace UnitTests
 {
     public class FilterBuilderTests
     {

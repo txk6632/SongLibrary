@@ -173,7 +173,7 @@ namespace SongLibrary
             Name = "DeleteSongForm";
             StartPosition = FormStartPosition.CenterParent;
             Text = "Delete Song";
-            Load += DeleteSongForm_Load;
+     
             ResumeLayout(false);
             PerformLayout();
         }
