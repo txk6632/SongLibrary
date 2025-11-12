@@ -41,7 +41,7 @@ namespace SongLibrary
             songLibraryGrid.CellContentClick += songLibraryGrid_CellContentClick;
         }
 
-
+        // Handle cell content clicks for Edit and Delete actions
         private void songLibraryGrid_CellContentClick(object? sender, DataGridViewCellEventArgs e)
         {
             // header or invalid
@@ -79,7 +79,7 @@ namespace SongLibrary
                 LoadSongsFromDatabase();
             }
         }
-
+        // Load songs from SQLite database into DataTable and bind to DataGridView
         private void LoadSongsFromDatabase()
         {
             if (!File.Exists(_dbPath))
@@ -125,8 +125,10 @@ namespace SongLibrary
 
             ModifyDataviewGrid(dt);
         }
+        // Modify DataGridView properties and set tooltips
         private void ModifyDataviewGrid(DataTable dt)
         {
+            // Set up DataGridView properties and set tooltip text for edit /delete columns
             songLibraryGrid.ShowCellToolTips = true;
             songLibraryGrid.AutoGenerateColumns = true;
             songLibraryGrid.DataSource = dt;

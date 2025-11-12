@@ -41,6 +41,7 @@ namespace SongLibrary
             pictureBox2 = new PictureBox();
             pictureBox1 = new PictureBox();
             sqliteCommand1 = new SqliteCommand();
+            label1 = new Label();
             ((System.ComponentModel.ISupportInitialize)songLibraryGrid).BeginInit();
             panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBox2).BeginInit();
@@ -117,6 +118,7 @@ namespace SongLibrary
             // 
             panel1.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             panel1.BackColor = Color.LightSkyBlue;
+            panel1.Controls.Add(label1);
             panel1.Controls.Add(pictureBox2);
             panel1.Controls.Add(pictureBox1);
             panel1.Controls.Add(searchBox);
@@ -156,6 +158,16 @@ namespace SongLibrary
             sqliteCommand1.Transaction = null;
             sqliteCommand1.UpdatedRowSource = UpdateRowSource.None;
             // 
+            // label1
+            // 
+            label1.AutoSize = true;
+            label1.Font = new Font("Segoe UI", 9F, FontStyle.Italic, GraphicsUnit.Point, 0);
+            label1.Location = new Point(1367, 144);
+            label1.Name = "label1";
+            label1.Size = new Size(164, 15);
+            label1.TabIndex = 6;
+            label1.Text = "*Click Column Headers to Sort";
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(96F, 96F);
@@ -190,6 +202,7 @@ namespace SongLibrary
         private PictureBox pictureBox2;
         private DataGridViewImageColumn Edit;
         private DataGridViewImageColumn Delete;
+        private Label label1;
     }
 }
 
