@@ -32,7 +32,7 @@ git clone https://github.com/txk6632/SongLibrary
 cd SongLibrary
 
 ### Fix Security Settings on MainForm.resx
--  Right Click MainForm.resx -> General Tab -> Check "Unblock" at the bottom next to Security
+-  SongLibrary/MainForm/Right Click MainForm.resx -> General Tab -> Check "Unblock" at the bottom next to Security
   
 ### Open in Visual Studio
 - Open the solution in Visual Studio.
