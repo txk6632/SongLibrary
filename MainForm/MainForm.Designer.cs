@@ -40,11 +40,11 @@ namespace SongLibrary
             panel1 = new Panel();
             groupBox1 = new GroupBox();
             btnClearDateFilter = new Button();
-            btnApplyDateFilter = new Button();
-            toDatePicker = new DateTimePicker();
             fromDatePicker = new DateTimePicker();
             label2 = new Label();
+            btnApplyDateFilter = new Button();
             label3 = new Label();
+            toDatePicker = new DateTimePicker();
             flowLayoutPanel1 = new FlowLayoutPanel();
             pictureBox2 = new PictureBox();
             label1 = new Label();
@@ -169,26 +169,6 @@ namespace SongLibrary
             btnClearDateFilter.UseVisualStyleBackColor = true;
             btnClearDateFilter.Click += btnClearDateFilter_Click;
             // 
-            // btnApplyDateFilter
-            // 
-            btnApplyDateFilter.Anchor = AnchorStyles.None;
-            btnApplyDateFilter.Location = new Point(244, 42);
-            btnApplyDateFilter.Name = "btnApplyDateFilter";
-            btnApplyDateFilter.Size = new Size(119, 23);
-            btnApplyDateFilter.TabIndex = 11;
-            btnApplyDateFilter.Text = "Apply Date Filter";
-            btnApplyDateFilter.UseVisualStyleBackColor = true;
-            btnApplyDateFilter.Click += btnApplyDateFilter_Click;
-            // 
-            // toDatePicker
-            // 
-            toDatePicker.Anchor = AnchorStyles.None;
-            toDatePicker.Format = DateTimePickerFormat.Short;
-            toDatePicker.Location = new Point(137, 42);
-            toDatePicker.Name = "toDatePicker";
-            toDatePicker.Size = new Size(101, 23);
-            toDatePicker.TabIndex = 8;
-            // 
             // fromDatePicker
             // 
             fromDatePicker.Anchor = AnchorStyles.None;
@@ -208,6 +188,17 @@ namespace SongLibrary
             label2.TabIndex = 9;
             label2.Text = "From Date";
             // 
+            // btnApplyDateFilter
+            // 
+            btnApplyDateFilter.Anchor = AnchorStyles.None;
+            btnApplyDateFilter.Location = new Point(244, 42);
+            btnApplyDateFilter.Name = "btnApplyDateFilter";
+            btnApplyDateFilter.Size = new Size(119, 23);
+            btnApplyDateFilter.TabIndex = 11;
+            btnApplyDateFilter.Text = "Apply Date Filter";
+            btnApplyDateFilter.UseVisualStyleBackColor = true;
+            btnApplyDateFilter.Click += btnApplyDateFilter_Click;
+            // 
             // label3
             // 
             label3.Anchor = AnchorStyles.Top;
@@ -217,6 +208,15 @@ namespace SongLibrary
             label3.Size = new Size(47, 15);
             label3.TabIndex = 10;
             label3.Text = "To Date";
+            // 
+            // toDatePicker
+            // 
+            toDatePicker.Anchor = AnchorStyles.None;
+            toDatePicker.Format = DateTimePickerFormat.Short;
+            toDatePicker.Location = new Point(137, 42);
+            toDatePicker.Name = "toDatePicker";
+            toDatePicker.Size = new Size(101, 23);
+            toDatePicker.TabIndex = 8;
             // 
             // flowLayoutPanel1
             // 

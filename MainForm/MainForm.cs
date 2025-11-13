@@ -26,6 +26,7 @@ namespace SongLibrary
             _logger.LogInformation("MainForm initialized");
             _bindingSource = new BindingSource();
             _repo = new SongRepository(_dbPath);
+            fromDatePicker.Value = DateTime.Today.AddDays(-30);
             LoadSongsFromDatabase();
 
             // Setup search box placeholder
@@ -119,7 +120,6 @@ namespace SongLibrary
             songLibraryGrid.DataBindingComplete += songLibraryGrid_DataBindingComplete;
             AdjustActionColumnWidths();
         }
-        
 
         // Adjust Edit/Delete column widths based on grid width so UI remains consistent,
         // since grid is responsive, if it's set to columns fill,the buttons columns become too wide on large screens. I designed 
@@ -444,8 +444,8 @@ namespace SongLibrary
             _currentDateFilter = string.Empty;
             ApplyFilter();
             // Reset date pickers to default values
-            if (fromDatePicker != null) fromDatePicker.Value = DateTime.Today.AddDays(-30);
-            if (toDatePicker != null) toDatePicker.Value = DateTime.Today;
+            fromDatePicker.Value = DateTime.Today.AddDays(-30);
+            toDatePicker.Value = DateTime.Today;
             _logger?.LogInformation("Date filter cleared");
         }
 
