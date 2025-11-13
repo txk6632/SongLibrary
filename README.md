@@ -41,7 +41,3 @@ cd SongLibrary
 
 ## Run from Visual Studio
 - Open the solution, set `SongLibrary` as startup project and press F5 or use __Debug > Start Debugging__.
-
-
-CLI:
-- Framework-dependent publish:
