@@ -239,14 +239,14 @@ namespace SongLibrary
             // 
             // label1
             // 
-            label1.Anchor = AnchorStyles.Right;
-            label1.AutoSize = true;
+            label1.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             label1.Font = new Font("Segoe UI", 9F, FontStyle.Italic, GraphicsUnit.Point, 0);
-            label1.Location = new Point(1101, 133);
+            label1.Location = new Point(1060, 130);
             label1.Name = "label1";
-            label1.Size = new Size(164, 15);
+            label1.Size = new Size(200, 18);
             label1.TabIndex = 6;
             label1.Text = "*Click Column Headers to Sort";
+            label1.TextAlign = ContentAlignment.MiddleRight;
             // 
             // pictureBox1
             // 

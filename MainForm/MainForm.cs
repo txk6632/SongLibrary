@@ -1,19 +1,23 @@
-using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
+using SongLibrary.Data;
 using System.Data;
 using System.Globalization;
-using Microsoft.Extensions.Logging;
 
 namespace SongLibrary
 {
+
     public partial class MainForm : Form
     {
-        private readonly ILogger<MainForm>? _logger;
-        private readonly string _dbPath = Path.Combine(System.Windows.Forms.Application.StartupPath, @"Data Sources\SongLibrary.db");
+        private readonly ILogger<MainForm> _logger;
+        private readonly string _dbPath = Path.Combine(Application.StartupPath, @"Data Sources\SongLibrary.db");
         private DataTable? _songsTable;
         private BindingSource _bindingSource;
         private const string _placeholderText = "Search by ID,Title,Artist,Release Date, or Price...";
         private bool _isPlaceholderActive = true;
         private static readonly Random _rndErr = new Random();
+        private bool _isDateFilterApplied = false;
+        private string _currentDateFilter = string.Empty;
+        private SongRepository _repo;
 
         public MainForm(ILogger<MainForm> logger)
         {
@@ -21,6 +25,7 @@ namespace SongLibrary
             InitializeComponent();
             _logger.LogInformation("MainForm initialized");
             _bindingSource = new BindingSource();
+            _repo = new SongRepository(_dbPath);
             LoadSongsFromDatabase();
 
             // Setup search box placeholder
@@ -42,13 +47,410 @@ namespace SongLibrary
             // Wire cell click event
             songLibraryGrid.CellContentClick -= songLibraryGrid_CellContentClick;
             songLibraryGrid.CellContentClick += songLibraryGrid_CellContentClick;
+
+            // Wire date filter buttons
+            btnApplyDateFilter.Click -= btnApplyDateFilter_Click;
+            btnApplyDateFilter.Click += btnApplyDateFilter_Click;
+            btnClearDateFilter.Click -= btnClearDateFilter_Click;
+            btnClearDateFilter.Click += btnClearDateFilter_Click;
+        }
+
+        // Load songs from SQLite database into DataTable and bind to DataGridView
+        private void LoadSongsFromDatabase()
+        {
+            if (!File.Exists(_dbPath))
+            {
+                MessageBox.Show($"Database file not found: {_dbPath}", "Missing DB", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var connString = $"Data Source={_dbPath}";
+            var dt = new DataTable()
+            {
+                Columns =
+                {
+                    new DataColumn("id", typeof(int)),
+                    new DataColumn("title", typeof(string)),
+                    new DataColumn("artist", typeof(string)),
+                    new DataColumn("release_date", typeof(string)),//SQLite stores dates as text
+                    new DataColumn("price", typeof(decimal))
+                }
+            };
+            try
+            {
+                dt = _repo.GetAll();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load song records from DB");
+                MessageBox.Show($"Failed to load song records: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            ModifyDataTable(dt);
+            _songsTable = dt;     
+            _bindingSource.DataSource = _songsTable.DefaultView;
+            ModifyDataviewGrid();
+     
+        }
+
+        // Modify DataTable to adjust column names and types
+        private void ModifyDataTable(DataTable dt)
+        {
+            //SQLite stores dates as text, needed to convert to DateTime so user can sort on grid
+            dt.Columns.Add("Release Date", typeof(DateTime));
+            foreach (DataRow row in dt.Rows)
+            {
+                DateTime releaseDate = Convert.ToDateTime(row["release_date"]);
+                row[ColumnNames.ReleaseDate] = releaseDate;
+            }
+            dt.Columns.Remove("release_date");
+            dt.Columns[ColumnNames.ReleaseDate]!.SetOrdinal(3);
+            dt.Columns["title"]!.ColumnName = ColumnNames.Title;
+            dt.Columns["artist"]!.ColumnName = ColumnNames.Artist;
+            dt.Columns["price"]!.ColumnName = ColumnNames.Price;
+        }
+
+        // Modify DataGridView properties and set tooltips
+        private void ModifyDataviewGrid()
+        {
+            // Set up DataGridView properties and set tooltip text for edit /delete columns
+            songLibraryGrid.ShowCellToolTips = true;
+            songLibraryGrid.AutoGenerateColumns = true;
+            songLibraryGrid.DataSource = _bindingSource;
+            songLibraryGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            songLibraryGrid.AllowUserToAddRows = false;
+            int lastIndex = songLibraryGrid.Columns.Count - 1;
+            songLibraryGrid.Columns["Delete"].DisplayIndex = lastIndex;
+            songLibraryGrid.Columns["Edit"].DisplayIndex = lastIndex - 1;
+            songLibraryGrid.Columns["Delete"].ToolTipText = "Delete Record";
+            songLibraryGrid.Columns["Edit"].ToolTipText = "Edit Record";
+            songLibraryGrid.Columns["Price"].DefaultCellStyle.Format = "N2";
+
+            //Wire DataBindingComplete event to set tooltips 
+            songLibraryGrid.DataBindingComplete -= songLibraryGrid_DataBindingComplete;
+            songLibraryGrid.DataBindingComplete += songLibraryGrid_DataBindingComplete;
+            AdjustActionColumnWidths();
+        }
+        
+
+        // Adjust Edit/Delete column widths based on grid width so UI remains consistent,
+        // since grid is responsive, if it's set to columns fill,the buttons columns become too wide on large screens. I designed 
+        // on a widescreen gaming monitor so the buttons were huge when fill mode was used.
+        private void AdjustActionColumnWidths()
+        {
+            if (songLibraryGrid.Columns == null || songLibraryGrid.Columns.Count == 0)
+                return;
+
+            // Calculate a sensible width for action columns:
+            // small screens = 40px, larger use a fraction of grid width up to max of 120px
+            int gridWidth = Math.Max(0, songLibraryGrid.ClientSize.Width);
+            int scaled = gridWidth / 30; 
+            int actionWidth = Math.Min(Math.Max(40, scaled), 120); 
+
+            if (songLibraryGrid.Columns.Contains("Edit"))
+            {
+                var col = songLibraryGrid.Columns["Edit"];
+                col.Width = actionWidth;
+                col.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+            }
+
+            if (songLibraryGrid.Columns.Contains("Delete"))
+            {
+                var col = songLibraryGrid.Columns["Delete"];
+                col.Width = actionWidth;
+                col.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+            }
+        }
+        // Apply filter based on search box text
+        private void ApplyFilter()
+        {
+            if (_songsTable == null)
+                return;
+
+            var raw = searchBox.Text?.Trim() ?? string.Empty;
+            var text = raw.Replace("'", "''");
+
+            // If there's no text search (or placeholder active) we should preserve date filter
+            if (string.IsNullOrEmpty(text) || _isPlaceholderActive)
+            {
+                if (_bindingSource.List is DataView dvClear)
+                {
+                    if (_isDateFilterApplied && !string.IsNullOrWhiteSpace(_currentDateFilter))
+                        dvClear.RowFilter = _currentDateFilter;
+                    else
+                        dvClear.RowFilter = string.Empty;
+                }
+                else
+                {
+                    if (_isDateFilterApplied && !string.IsNullOrWhiteSpace(_currentDateFilter))
+                        _bindingSource.Filter = _currentDateFilter;
+                    else
+                        _bindingSource.Filter = null;
+                }
+                return;
+            }
+
+            // Try parse the non-string types
+            var isInt = int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intVal);
+            var isDecimal = decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var decVal);
+            var isDate = DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateVal)
+                         || DateTime.TryParse(raw, out dateVal);
+
+            // Build filter parts for each column
+            var parts = new List<string>();
+
+            foreach (DataColumn col in _songsTable.Columns)
+            {
+                if (col.DataType == typeof(string))
+                {
+                    parts.Add($"[{col.ColumnName}] LIKE '%{text}%'");
+                    continue;
+                }
+
+                if (col.DataType == typeof(int) || col.DataType == typeof(long) || col.DataType == typeof(short))
+                {
+                    if (isInt) parts.Add($"[{col.ColumnName}] = {intVal}");
+                    parts.Add($"Convert([{col.ColumnName}], 'System.String') LIKE '%{text}%'");
+                    continue;
+                }
+
+                if (col.DataType == typeof(decimal) || col.DataType == typeof(double) || col.DataType == typeof(float))
+                {
+                    if (isDecimal) parts.Add($"[{col.ColumnName}] = {decVal.ToString(CultureInfo.InvariantCulture)}");
+                    parts.Add($"Convert([{col.ColumnName}], 'System.String') LIKE '%{text}%'");
+                    continue;
+                }
+
+                if (col.DataType == typeof(DateTime))
+                {
+                    if (isDate) parts.Add($"[{col.ColumnName}] = #{dateVal.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)}#");
+                    parts.Add($"Convert([{col.ColumnName}], 'System.String') LIKE '%{text}%'");
+                    continue;
+                }
+
+                parts.Add($"Convert([{col.ColumnName}], 'System.String') LIKE '%{text}%'");
+            }
+
+            var textFilter = string.Join(" OR ", parts);
+
+            // If a date filter is active, combine them with AND, otherwise apply text-only filter
+            if (_bindingSource.List is DataView dv)
+            {
+                if (_isDateFilterApplied && !string.IsNullOrWhiteSpace(_currentDateFilter))
+                    dv.RowFilter = $"({_currentDateFilter}) AND ({textFilter})";
+                else
+                    dv.RowFilter = textFilter;
+            }
+            else
+            {
+                if (_isDateFilterApplied && !string.IsNullOrWhiteSpace(_currentDateFilter))
+                    _bindingSource.Filter = $"({_currentDateFilter}) AND ({textFilter})";
+                else
+                    _bindingSource.Filter = textFilter;
+            }
+        }
+        // Confirm and delete song record, runs on cell content click for Delete column
+        private void ConfirmAndDelete(DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0) return;
+            var row = songLibraryGrid.Rows[e.RowIndex];
+            if (row == null) return;
+
+            string title = row.Cells["Title"].Value.ToString() ?? string.Empty;
+            string artist = row.Cells["Artist"].Value.ToString() ?? string.Empty;
+            int id = Convert.ToInt32(row.Cells["id"].Value);
+            DateTime releaseDate = Convert.ToDateTime(row.Cells["Release Date"].Value);
+            decimal price = Convert.ToDecimal(row.Cells["Price"].Value);
+
+            using var dlg = new DeleteSongForm(title, artist, releaseDate, price);
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+            try
+            {
+                var rows = _repo.Delete(id);
+                if (rows > 0)
+                {
+                    _logger?.LogInformation($"Deleted Song {title}");
+                    MessageBox.Show("Record deleted successfully.", "Delete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    LoadSongsFromDatabase();
+                }
+                else
+                {
+                    MessageBox.Show("No rows were deleted.", "Delete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete record id={Id}", id);
+                MessageBox.Show($"Failed to delete record: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        // Edit song record, runs on cell content click for Edit column
+        private void EditSongRecord(DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0) return;
+            // Get current values
+            var title = songLibraryGrid.Rows[e.RowIndex].Cells[ColumnNames.Title].Value?.ToString() ?? string.Empty;
+            var artist = songLibraryGrid.Rows[e.RowIndex].Cells[ColumnNames.Artist].Value?.ToString() ?? string.Empty;
+            DateTime releaseDate = Convert.ToDateTime(songLibraryGrid.Rows[e.RowIndex].Cells[ColumnNames.ReleaseDate].Value);
+            decimal price = (decimal)songLibraryGrid.Rows[e.RowIndex].Cells[ColumnNames.Price].Value;
+            int id = Convert.ToInt32(songLibraryGrid.Rows[e.RowIndex].Cells[ColumnNames.Id].Value?.ToString());
+
+            // Show AddEdit dialog passing constructor parameters
+            using var dlg = new AddEditSongForm("Edit Song", title, artist, releaseDate, price);
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+            try
+            {
+                if (_rndErr.Next(5) == 0)
+                {
+                    _logger?.LogError("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
+                    throw new InvalidOperationException("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
+                }
+                var rows = _repo.Update(id, dlg.SongTitle, dlg.Artist, dlg.ReleaseDate, dlg.Price);
+                if (rows > 0)
+                {
+                    _logger?.LogInformation($"Updated song {dlg.SongTitle}");
+                    MessageBox.Show("Record updated successfully.", "Update", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    LoadSongsFromDatabase();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update record id={Id}", id);
+                MessageBox.Show($"Failed to update record: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // Add button click handler
+        private void btnAdd_Click(object? sender, EventArgs e)
+        {
+            // Show AddEdit dialog passing only the form title
+            using var dlg = new AddEditSongForm("Add Song");
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+            try
+            {
+                if (_rndErr.Next(5) == 0)
+                {
+                    _logger?.LogError("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
+                    throw new InvalidOperationException("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
+                }
+                var rows = _repo.Insert(dlg.SongTitle, dlg.Artist, dlg.ReleaseDate, dlg.Price);
+                if (rows > 0)
+                {
+                    _logger?.LogInformation($"Added song {dlg.SongTitle}");
+                    MessageBox.Show("Record inserted successfully.", "Insert", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    // Refresh grid
+                    LoadSongsFromDatabase();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError($"Failed to insert record: {ex.Message}");
+                MessageBox.Show($"Failed to insert record: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // Set tooltips for action columns after data binding completes
+        private void songLibraryGrid_DataBindingComplete(object sender, DataGridViewBindingCompleteEventArgs e)
+        {
+            if (songLibraryGrid.Columns.Contains("Edit") || songLibraryGrid.Columns.Contains("Delete"))
+            {
+                foreach (DataGridViewRow row in songLibraryGrid.Rows)
+                {
+                    if (row.IsNewRow) continue;
+
+                    if (songLibraryGrid.Columns.Contains("Edit"))
+                    {
+                        var editCell = row.Cells["Edit"];
+                        editCell.ToolTipText = "Edit Record";
+                    }
+
+                    if (songLibraryGrid.Columns.Contains("Delete"))
+                    {
+                        var deleteCell = row.Cells["Delete"];
+                        deleteCell.ToolTipText = "Delete Record";
+                    }
+                }
+            }
+        }
+     
+        //Applies the Date Range Filter
+        private void btnApplyDateFilter_Click(object? sender, EventArgs e)
+        {
+            // Ensure data is loaded
+            if (_songsTable == null)
+                return;
+
+            // Check if dates are not Null
+            if (fromDatePicker == null || toDatePicker == null)
+                return;
+
+            var from = fromDatePicker.Value.Date;
+            var to = toDatePicker.Value.Date;
+
+            // If user picked backwards, swap the dates
+            if (from > to)
+            {
+                var tmp = from;
+                from = to;
+                to = tmp;
+            }
+
+            // DataView RowFilter syntax for date range
+            string dateFilter = $"[Release Date] >= #{from.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)}# AND [Release Date] <= #{to.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)}#";
+
+            // Remember the date filter so ApplyFilter can preserve/merge it
+            _currentDateFilter = dateFilter;
+            _isDateFilterApplied = true;
+
+            if (_bindingSource.List is DataView dv)
+            {
+                // Preserve any existing text filter already applied by ApplyFilter
+                var existing = dv.RowFilter;
+                if (string.IsNullOrWhiteSpace(existing))
+                {
+                    dv.RowFilter = dateFilter;
+                }
+                else
+                {
+                    // Join any existing filter with date filter
+                    dv.RowFilter = $"({existing}) AND ({dateFilter})";
+                }
+            }
+            else
+            {
+                // In case the list isn't of type DataView, set BindingSource.Filter
+                var existing = _bindingSource.Filter;
+                if (string.IsNullOrWhiteSpace(existing?.ToString()))
+                    _bindingSource.Filter = dateFilter;
+                else
+                    _bindingSource.Filter = $"({existing}) AND ({dateFilter})";
+            }
+            _logger?.LogInformation("Date filter applied: {from} - {to}", from, to);
+        }
+
+        private void btnClearDateFilter_Click(object? sender, EventArgs e)
+        {
+            if (_songsTable == null)
+                return;
+
+            // clear stored date filter then re-apply the text search filter only
+            _isDateFilterApplied = false;
+            _currentDateFilter = string.Empty;
+            ApplyFilter();
+            // Reset date pickers to default values
+            if (fromDatePicker != null) fromDatePicker.Value = DateTime.Today.AddDays(-30);
+            if (toDatePicker != null) toDatePicker.Value = DateTime.Today;
+            _logger?.LogInformation("Date filter cleared");
         }
 
         // Handle cell content clicks for Edit and Delete actions
         private void songLibraryGrid_CellContentClick(object? sender, DataGridViewCellEventArgs e)
         {
             // header or invalid
-            if (e.RowIndex < 0 || e.ColumnIndex < 0) return; 
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
 
             var col = songLibraryGrid.Columns[e.ColumnIndex];
             if (col == null) return;
@@ -79,434 +481,20 @@ namespace SongLibrary
                 searchBox.Text = _placeholderText;
                 searchBox.ForeColor = SystemColors.GrayText;
                 _isPlaceholderActive = true;
-                LoadSongsFromDatabase();
-            }
-        }
-        // Load songs from SQLite database into DataTable and bind to DataGridView
-        private void LoadSongsFromDatabase()
-        {
-            if (!File.Exists(_dbPath))
-            {
-                MessageBox.Show($"Database file not found: {_dbPath}", "Missing DB", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            var connString = $"Data Source={_dbPath}";
-            var dt = new DataTable()
-            {
-                Columns =
-                {
-                    new DataColumn("id", typeof(int)),
-                    new DataColumn("title", typeof(string)),
-                    new DataColumn("artist", typeof(string)),
-                    new DataColumn("release_date", typeof(string)),//SQLite stores dates as text
-                    new DataColumn("price", typeof(decimal))
-                }
-            };
-
-            try
-            {
-                using var connection = new SqliteConnection(connString);
-                connection.Open();
-
-                using var cmd = connection.CreateCommand();
-                cmd.CommandText = "SELECT * FROM song_library";
-
-                using var reader = cmd.ExecuteReader();
-                dt.Load(reader);
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Failed to load song records from DB");
-                MessageBox.Show($"Failed to load song records: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            ModifyDataTable(dt);
-
-            _songsTable = dt;
-            _bindingSource.DataSource = _songsTable.DefaultView;
-
-            ModifyDataviewGrid(dt);
-        }
-        // Modify DataGridView properties and set tooltips
-        private void ModifyDataviewGrid(DataTable dt)
-        {
-            // Set up DataGridView properties and set tooltip text for edit /delete columns
-            songLibraryGrid.ShowCellToolTips = true;
-            songLibraryGrid.AutoGenerateColumns = true;
-            songLibraryGrid.DataSource = dt;
-            songLibraryGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            songLibraryGrid.AllowUserToAddRows = false;
-            int lastIndex = songLibraryGrid.Columns.Count - 1;
-            songLibraryGrid.Columns["Delete"].DisplayIndex = lastIndex;
-            songLibraryGrid.Columns["Edit"].DisplayIndex = lastIndex - 1;
-
-            songLibraryGrid.Columns["Delete"].ToolTipText = "Delete Record";
-            songLibraryGrid.Columns["Edit"].ToolTipText = "Edit Record";
-
-            songLibraryGrid.Columns["Price"].DefaultCellStyle.Format = "N2";
-
-            //Wire DataBindingComplete event to set tooltips
-            if (songLibraryGrid != null)
-            {
-                songLibraryGrid.DataBindingComplete -= songLibraryGrid_DataBindingComplete;
-                songLibraryGrid.DataBindingComplete += songLibraryGrid_DataBindingComplete;
-            }
-            else
-            {
-                _logger?.LogError("Datasource is null.");
-                throw new InvalidOperationException("Datasource is null.");          
-            }
-
-                AdjustActionColumnWidths();
-        }
-        // Called when the form is resized
-        private void MainForm_Resize(object? sender, EventArgs e) => AdjustActionColumnWidths();
-
-        // Adjust Edit/Delete column widths based on grid width so UI remains consistent,
-        // since grid is responsive, if it's set to columns fill,the buttons columns become too wide on large screens. I designed 
-        // on a widescreen gaming monitor so the buttons were huge when fill mode was used.
-        private void AdjustActionColumnWidths()
-        {
-            if (songLibraryGrid.Columns == null || songLibraryGrid.Columns.Count == 0)
-                return;
-
-            // Calculate a sensible width for action columns:
-            // small screens = 40px, larger use a fraction of grid width up to max of 120px
-            int gridWidth = Math.Max(0, songLibraryGrid.ClientSize.Width);
-            int scaled = gridWidth / 30; 
-            int actionWidth = Math.Min(Math.Max(40, scaled), 120); 
-
-            if (songLibraryGrid.Columns.Contains("Edit"))
-            {
-                var col = songLibraryGrid.Columns["Edit"];
-                col.Width = actionWidth;
-                col.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-            }
-
-            if (songLibraryGrid.Columns.Contains("Delete"))
-            {
-                var col = songLibraryGrid.Columns["Delete"];
-                col.Width = actionWidth;
-                col.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-            }
-        }
-
-        // Set tooltips for action columns after data binding completes
-        private void songLibraryGrid_DataBindingComplete(object sender, DataGridViewBindingCompleteEventArgs e)
-        {
-            if (songLibraryGrid.Columns.Contains("Edit") || songLibraryGrid.Columns.Contains("Delete"))
-            {
-                foreach (DataGridViewRow row in songLibraryGrid.Rows)
-                {
-                    if (row.IsNewRow) continue;
-
-                    if (songLibraryGrid.Columns.Contains("Edit"))
-                    {
-                        var editCell = row.Cells["Edit"];
-                        editCell.ToolTipText = "Edit Record";
-                    }
-
-                    if (songLibraryGrid.Columns.Contains("Delete"))
-                    {
-                        var deleteCell = row.Cells["Delete"];
-                        deleteCell.ToolTipText = "Delete Record";
-                    }
-                }
-            }
-        }
-        // Modify DataTable to adjust column names and types
-        private void ModifyDataTable(DataTable dt)
-        {
-            //SQLite stores dates as text, convert to DateTime so user can sort on grid
-            dt.Columns.Add("Release Date", typeof(DateTime));
-            foreach (DataRow row in dt.Rows)
-            {
-                DateTime releaseDate = Convert.ToDateTime(row["release_date"]);
-                row["Release Date"] = releaseDate;
-            }
-            dt.Columns.Remove("release_date");
-            dt.Columns["Release Date"]!.SetOrdinal(3);
-            dt.Columns["title"]!.ColumnName = "Title";   
-            dt.Columns["artist"]!.ColumnName = "Artist";
-            dt.Columns["price"]!.ColumnName = "Price";
-        }
-        private void btnApplyDateFilter_Click(object? sender, EventArgs e)
-        {
-            // Ensure data is loaded
-            if (_songsTable == null)
-                return;
-
-            // Check if dates are not Null
-            if (fromDatePicker == null || toDatePicker == null)
-                return;
-
-            var from = fromDatePicker.Value.Date;
-            var to = toDatePicker.Value.Date;
-
-            // If user picked backwards, swap the dates
-            if (from > to)
-            {
-                var tmp = from;
-                from = to;
-                to = tmp;
-            }
-
-            // DataView RowFilter syntax for date range
-            string dateFilter = $"[Release Date] >= #{from.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)}# AND [Release Date] <= #{to.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)}#";
-
-            if (_bindingSource.List is DataView dv)
-            {
-                // Preserve any existing text filter already applied by ApplyFilter
-                var existing = dv.RowFilter;
-                if (string.IsNullOrWhiteSpace(existing))
-                    dv.RowFilter = dateFilter;
-                else
-                    //Join any existing filter with date filter
-                    dv.RowFilter = $"({existing}) AND ({dateFilter})";
-            }
-            else
-            {
-                // Incase the list isn't of type dataview, set to bindingSource.Filter
-                var existing = _bindingSource.Filter;
-                if (string.IsNullOrWhiteSpace(existing?.ToString()))
-                    _bindingSource.Filter = dateFilter;
-                else
-                    _bindingSource.Filter = $"({existing}) AND ({dateFilter})";
-            }
-
-            _logger?.LogInformation("Date filter applied: {from} - {to}", from, to);
-        }
-
-        private void btnClearDateFilter_Click(object? sender, EventArgs e)
-        {
-            if (_songsTable == null)
-                return;
-
-            // Clear date filter while preserving text filter by re-applying the current search text filter
-            // The existing ApplyFilter implementation reads searchBox.Text and applies the text-only filter.
-            ApplyFilter();
-
-            // Reset date pickers to default values, chose last 30 days as default for From and Today for To
-            if (fromDatePicker != null) fromDatePicker.Value = DateTime.Today.AddDays(-30);
-            if (toDatePicker != null) toDatePicker.Value = DateTime.Today;
-
-            _logger?.LogInformation("Date filter cleared");
-        }
-        // Apply filter based on search box text
-        private void ApplyFilter()
-        {
-            if (_songsTable == null)
-                return;
-
-            var raw = searchBox.Text?.Trim() ?? string.Empty;
-            var text = raw.Replace("'", "''");
-
-            if (string.IsNullOrEmpty(text) || _isPlaceholderActive)
-            {
-                if (_bindingSource.List is DataView dvClear)
-                    dvClear.RowFilter = string.Empty;
-                else
-                    _bindingSource.Filter = null;
-                return;
-            }
-
-            // Try parse the non-string types
-            var isInt = int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intVal);
-            var isDecimal = decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var decVal);
-            var isDate = DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateVal)
-                         || DateTime.TryParse(raw, out dateVal);
-
-            // Build filter parts for each column
-            var parts = new List<string>();
-
-            foreach (DataColumn col in _songsTable.Columns)
-            {
-                // String types, just use LIKE search
-                if (col.DataType == typeof(string))
-                {
-                    parts.Add($"[{col.ColumnName}] LIKE '%{text}%'");
-                    continue;
-                }
-
-                // Integer types
-                if (col.DataType == typeof(int) || col.DataType == typeof(long) || col.DataType == typeof(short))
-                {
-                    //If parsing returned true, then use the intVal for exact match
-                    if (isInt) parts.Add($"[{col.ColumnName}] = {intVal}");
-                    // //Always use the raw value as a string for partial match
-                    parts.Add($"Convert([{col.ColumnName}], 'System.String') LIKE '%{text}%'");
-                    continue;
-                }
-
-                // Floating / decimal types
-                if (col.DataType == typeof(decimal) || col.DataType == typeof(double) || col.DataType == typeof(float))
-                {
-                    //If parsing returned true, then use the decVal for exact match
-                    if (isDecimal) parts.Add($"[{col.ColumnName}] = {decVal.ToString(CultureInfo.InvariantCulture)}");
-                    //Always use the raw value as a string for partial match
-                    parts.Add($"Convert([{col.ColumnName}], 'System.String') LIKE '%{text}%'");
-                    continue;
-                }
-
-                // Date/time types
-                if (col.DataType == typeof(DateTime))
-                {
-                    //If parsing returned true, then use the dateVal for exact match
-                    if (isDate) parts.Add($"[{col.ColumnName}] = #{dateVal.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)}#");                  
-                    //Always use the raw value as a string for partial match
-                    parts.Add($"Convert([{col.ColumnName}], 'System.String') LIKE '%{text}%'");
-                    continue;
-                }
-
-                // Fallback for any types not mentioned, convert to string and use LIKE, this part isn't necessary for 
-                // for this app since all columns are string/int/decimal/date, but I included it since it's good practice to have fallbacks for anything.
-                parts.Add($"Convert([{col.ColumnName}], 'System.String') LIKE '%{text}%'");
-            }
-
-            //Creates filter string by combining all parts with OR
-            var filter = string.Join(" OR ", parts);
-
-            //If the binding source list is a dataview then apply the filter to the dataview's RowFilter property
-            if (_bindingSource.List is DataView dv) 
-                dv.RowFilter = filter;
-            //If for some reason it's not a dataview, fallback to setting the BindingSource's Filter property
-            else
-                _bindingSource.Filter = filter;
-        }
-        // Edit song record, runs on cell content click for Edit column
-        private async void EditSongRecord(DataGridViewCellEventArgs e)
-        {
-            if (e.RowIndex < 0) return;
-            // Get current values
-            var title = songLibraryGrid.Rows[e.RowIndex].Cells["title"].Value?.ToString() ?? string.Empty;
-            var artist = songLibraryGrid.Rows[e.RowIndex].Cells["artist"].Value?.ToString() ?? string.Empty;
-            DateTime releaseDate = Convert.ToDateTime(songLibraryGrid.Rows[e.RowIndex].Cells["release date"].Value);
-            decimal price = (decimal)songLibraryGrid.Rows[e.RowIndex].Cells["price"].Value;
-            int id = Convert.ToInt32(songLibraryGrid.Rows[e.RowIndex].Cells["id"].Value?.ToString());
-
-            // Show AddEdit dialog passing constructor parameters
-            using var dlg = new AddEditSongForm("Edit Song",title, artist, releaseDate, price);
-            if (dlg.ShowDialog(this) != DialogResult.OK) return;
-
-            try
-            {
-                if (_rndErr.Next(5) == 0)
-                {
-                    _logger?.LogError("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
-                    throw new InvalidOperationException("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
-                }
-                // Update record in database
-                string strQuery = "UPDATE song_library SET title=@title, artist=@artist, release_date=@release_date, price=@price WHERE id=@id";
-                var rows = await ExecuteNonQuery(strQuery, dlg, id);
-                if (rows > 0)
-                {
-                    _logger?.LogInformation($"Updated song {dlg.SongTitle}");
-                    MessageBox.Show("Record updated successfully.", "Update", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    // Refresh grid
-                    LoadSongsFromDatabase();
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to update record: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-       
-        // Add button click handler
-        private async void btnAdd_Click(object? sender, EventArgs e)
-        {      
-            // Show AddEdit dialog passing only the form title
-            using var dlg = new AddEditSongForm("Add Song");
-            if (dlg.ShowDialog(this) != DialogResult.OK) return;
-            try
-            {
-                if (_rndErr.Next(5) == 0)
-                {
-                    _logger?.LogError("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
-                    throw new InvalidOperationException("Invalid operation. The connection is closed.(Simulated 1/5 failure)");
-                }
-                string strQuery = "INSERT INTO song_library (title, artist, release_date, price) VALUES (@title, @artist, @release_date, @price)";
-                var rows = await ExecuteNonQuery(strQuery, dlg, null);
-                if (rows > 0)
-                {
-                    _logger?.LogInformation($"Added song {dlg.SongTitle}");
-                    MessageBox.Show("Record inserted successfully.", "Insert", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    // Refresh grid
-                    LoadSongsFromDatabase();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError($"Failed to insert record: {ex.Message}") ;
-                MessageBox.Show($"Failed to insert record: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }        
-        }
-        private async Task<int> ExecuteNonQuery(string strQuery, AddEditSongForm dlg, int? id)
-        {
-            using var connection = new SqliteConnection($"Data Source={_dbPath}");
-            await connection.OpenAsync();
-
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = strQuery;
-            cmd.Parameters.AddWithValue("@title", dlg.SongTitle);
-            cmd.Parameters.AddWithValue("@artist", dlg.Artist);
-            cmd.Parameters.AddWithValue("@release_date", dlg.ReleaseDate.ToString("MM-dd-yyyy", CultureInfo.InvariantCulture));
-            cmd.Parameters.AddWithValue("@price", dlg.Price);
-            if(id.HasValue)
-            {
-                cmd.Parameters.AddWithValue("@id", id);
-            }
-            return await cmd.ExecuteNonQueryAsync();
-        }
-        // Confirm and delete song record, runs on cell content click for Delete column
-        private async void ConfirmAndDelete(DataGridViewCellEventArgs e)
-        {
-            if (e.RowIndex < 0) return;
-            var row = songLibraryGrid.Rows[e.RowIndex];
-            if (row == null) return;
-
-            string title = row.Cells["Title"].Value.ToString() ?? string.Empty;
-            string artist = row.Cells["Artist"].Value.ToString() ?? string.Empty;
-            int id = Convert.ToInt32(row.Cells["id"].Value);
-
-
-            DateTime releaseDate = Convert.ToDateTime(row.Cells["Release Date"].Value);
-            decimal price = Convert.ToDecimal(row.Cells["Price"].Value);
-
-            using var dlg = new DeleteSongForm(title, artist, releaseDate, price);
-            if (dlg.ShowDialog(this) != DialogResult.OK) return;
-
-            try
-            {
-                using var connection = new SqliteConnection($"Data Source={_dbPath}");
-                await connection.OpenAsync();
-                using var cmd = connection.CreateCommand();
-
-                cmd.CommandText = "DELETE FROM song_library WHERE id = @id";
-                cmd.Parameters.AddWithValue("@id", id);
-
-                var rows = await cmd.ExecuteNonQueryAsync();
-                if (rows > 0)
-                {
-                    _logger?.LogInformation($"Deleted Song {title}");
-                    MessageBox.Show("Record deleted successfully.", "Delete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    LoadSongsFromDatabase();
-                }
-                else
-                {            
-                    MessageBox.Show("No rows were deleted.", "Delete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to delete record: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ApplyFilter();
             }
         }
         // Search box text changed event handler, applies filter to grid
         private void searchBox_TextChanged(object sender, EventArgs e) => ApplyFilter();
-
-     
+        // Called when the form is resized
+        private void MainForm_Resize(object? sender, EventArgs e) => AdjustActionColumnWidths();
+    }
+    public static class ColumnNames
+    {
+        public const string Id = "id";
+        public const string Title = "Title";
+        public const string Artist = "Artist";
+        public const string ReleaseDate = "Release Date";
+        public const string Price = "Price";
     }
 }
