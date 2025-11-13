@@ -158,7 +158,7 @@ namespace SongLibrary
             var raw = searchBox.Text?.Trim() ?? string.Empty;
             var text = raw.Replace("'", "''");
 
-            // If there's no text search (or placeholder active) we should preserve date filter
+            // If there's no text search (or placeholder active) I preserve date filter
             if (string.IsNullOrEmpty(text) || _isPlaceholderActive)
             {
                 if (_bindingSource.List is DataView dvClear)
@@ -492,6 +492,7 @@ namespace SongLibrary
         // Called when the form is resized
         private void MainForm_Resize(object? sender, EventArgs e) => AdjustActionColumnWidths();
     }
+    //Add Column names as constants to avoid mistypings
     public static class ColumnNames
     {
         public const string Id = "id";
