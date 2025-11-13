@@ -22,7 +22,6 @@
 
   <ItemGroup>
     <Folder Include="Data Sources\" />
-    <Folder Include="SongLibrary\" />
   </ItemGroup>
 
   <ItemGroup>
