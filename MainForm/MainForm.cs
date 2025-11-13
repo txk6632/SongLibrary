@@ -229,7 +229,7 @@ namespace SongLibrary
                 else
                     dv.RowFilter = textFilter;
             }
-            else
+            else// In case the list isn't of type DataView, set BindingSource.Filter, this is unlikely but just in case
             {
                 if (_isDateFilterApplied && !string.IsNullOrWhiteSpace(_currentDateFilter))
                     _bindingSource.Filter = $"({_currentDateFilter}) AND ({textFilter})";

@@ -5,7 +5,7 @@ namespace SongLibrary
     public partial class AddEditSongForm : Form
     {
         private readonly ILogger<AddEditSongForm>? _logger;
-        // Preserve comment style from AddSongForm
+       
         public AddEditSongForm(string formTitle, string? title = null, string? artist = null, DateTime? releaseDate = null, decimal price = 0, ILogger<AddEditSongForm>? logger = null)
         {
             _logger = logger;
@@ -27,7 +27,7 @@ namespace SongLibrary
         
         private void okButton_Click(object sender, EventArgs e)
         {
-            // Validate user inputs
+            // Validate user inputs, it's okay to have empty release date and price because they have defaults
             if (string.IsNullOrWhiteSpace(SongTitle))
             {
                 MessageBox.Show("Please enter a Title.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
