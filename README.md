@@ -1,10 +1,10 @@
 # SongLibrary
 
 WinForms application that manages a local song library stored in a SQLite database.
-Datagridview works well with datatables and datasources
+Datagridview works well with datatables using the binding source
 Has column sorting enabled by default
 Used Column button for edit/delete since it reduces uneccessary buttons on the form elsewhere
-Used filter methods that allow for filtering through all columns 
+Used search box filter method that allow for filtering through all columns 
 Included Date Range filtering
 Included Unit tests for building filters and testing inserting song records
 
@@ -24,6 +24,7 @@ Included Unit tests for building filters and testing inserting song records
 ## End User
 - Download and Unzip the latest release here https://github.com/txk6632/SongLibrary/releases
 - Double Click SongLibrary application to run
+- Unknown Publisher Warning - Click Run Anyway
 
 ## Developers
 
@@ -40,7 +41,3 @@ cd SongLibrary
 
 ## Run from Visual Studio
 - Open the solution, set `SongLibrary` as startup project and press F5 or use __Debug > Start Debugging__.
-
-
-CLI:
-- Framework-dependent publish:
